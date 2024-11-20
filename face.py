@@ -5,6 +5,7 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Conv2D, MaxPooling2D, Flatten, Dense
 from tensorflow.keras.optimizers import Adam
 import os
+from sklearn.preprocessing import LabelEncoder
 
 # Phát hiện khuôn mặt
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -43,7 +44,6 @@ if len(faces) == 0:
     raise ValueError("Không có dữ liệu khuôn mặt trong thư mục. Hãy kiểm tra lại dữ liệu đầu vào!")
 
 # Chuyển đổi nhãn thành số (bạn có thể cần mã hóa nhãn nếu chúng là chuỗi)
-from sklearn.preprocessing import LabelEncoder
 label_encoder = LabelEncoder()
 y_train = label_encoder.fit_transform(labels)
 
@@ -70,8 +70,18 @@ model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=
 # Huấn luyện mô hình
 model.fit(X_train, y_train, epochs=10, batch_size=32)
 
-# Mở camera
+# Cấu hình kích thước video tùy chỉnh
+width = 640  # Chiều rộng mong muốn của cửa sổ và video
+height = 480  # Chiều cao mong muốn của cửa sổ và video
+
+# Mở camera và thiết lập độ phân giải
 cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)  # Đặt chiều rộng
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)  # Đặt chiều cao
+
+# Thiết lập kích thước cửa sổ hiển thị
+cv2.namedWindow("Face Recognition", cv2.WINDOW_NORMAL)
+cv2.resizeWindow("Face Recognition", width, height)
 
 while True:
     # Đọc frame từ camera

@@ -1,64 +1,133 @@
-ứng dụng nhận diện khuôn mặt sử dụng mạng nơ-ron tích chập (CNN) với thư viện TensorFlow và OpenCV. Dưới đây là giải thích chi tiết về từng phần trong mã:
+Đoạn mã bạn cung cấp là một ứng dụng nhận diện khuôn mặt sử dụng **OpenCV** và **TensorFlow**. Mục đích của ứng dụng này là phát hiện khuôn mặt trong các ảnh đầu vào, huấn luyện một mô hình học sâu (CNN) để nhận diện các khuôn mặt, và sau đó thực hiện nhận diện khuôn mặt từ webcam của người dùng. Dưới đây là phần giải thích chi tiết về từng bước trong mã:
 
-### 1. **Nhập các thư viện cần thiết**
-   - **`cv2`**: Thư viện OpenCV để xử lý hình ảnh và video.
-   - **`numpy`**: Dùng để xử lý mảng (array) cho dữ liệu đầu vào và đầu ra.
-   - **`tensorflow`**: Dùng để xây dựng và huấn luyện mô hình học sâu (Deep Learning).
-   - **`os`**: Để làm việc với các file và thư mục trên hệ thống.
+### 1. **Nhập khẩu thư viện**:
+- `cv2`: Thư viện OpenCV dùng để xử lý hình ảnh, video, và các chức năng nhận diện khuôn mặt.
+- `numpy`: Dùng để xử lý các mảng dữ liệu, đặc biệt là các mảng ảnh.
+- `tensorflow`: Dùng để xây dựng và huấn luyện mô hình học sâu.
+- `LabelEncoder` từ `sklearn`: Dùng để chuyển nhãn (label) dạng chuỗi thành dạng số.
 
-### 2. **Phát hiện khuôn mặt**
-   - **`face_cascade`**: Đây là một đối tượng Cascade Classifier từ OpenCV được sử dụng để phát hiện khuôn mặt trong ảnh. Mô hình này dựa trên thuật toán Haar Cascades. Cụ thể, file `haarcascade_frontalface_default.xml` được sử dụng để phát hiện khuôn mặt.
-   
-### 3. **Chuẩn bị dữ liệu**
-   - **`prepare_data(data_path)`**: Hàm này nhận vào một đường dẫn thư mục chứa dữ liệu ảnh khuôn mặt. Trong thư mục này, mỗi thư mục con sẽ chứa ảnh của một người và tên thư mục đó sẽ là nhãn cho người đó (ví dụ, `person1`, `person2`).
-   
-   - **`cv2.imread(file_path)`**: Đọc ảnh từ đường dẫn.
-   - **`cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)`**: Chuyển ảnh từ không gian màu RGB sang ảnh xám (grayscale) để giảm độ phức tạp tính toán.
-   - **`face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)`**: Phát hiện khuôn mặt trong ảnh xám. Hàm này trả về các tọa độ của các khuôn mặt trong ảnh (x, y, w, h).
-   - **`faces.append(face)`**: Lưu các khuôn mặt vào danh sách `faces`.
-   - **`labels.append(label)`**: Lưu nhãn (tên người) vào danh sách `labels`.
-   - Kết quả trả về là một mảng numpy chứa ảnh khuôn mặt và nhãn của từng khuôn mặt.
+### 2. **Phát hiện khuôn mặt**:
+```python
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+```
+- `CascadeClassifier` sử dụng mô hình Haar để phát hiện khuôn mặt trong ảnh. Đây là mô hình đã được huấn luyện trước để nhận diện khuôn mặt.
+  
+### 3. **Đọc và chuẩn bị dữ liệu khuôn mặt**:
+```python
+def prepare_data(data_path):
+    faces = []
+    labels = []
+    
+    for label in os.listdir(data_path):
+        label_path = os.path.join(data_path, label)
+        if os.path.isdir(label_path):
+            for file_name in os.listdir(label_path):
+                file_path = os.path.join(label_path, file_name)
+                img = cv2.imread(file_path)
+                if img is not None:
+                    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                    faces_rect = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+                    
+                    for (x, y, w, h) in faces_rect:
+                        face = gray[y:y+h, x:x+w]
+                        face = cv2.resize(face, (100, 100))  # Resize ảnh khuôn mặt về kích thước cố định
+                        faces.append(face)
+                        labels.append(label)
 
-### 4. **Chuyển đổi nhãn thành số**
-   - **`LabelEncoder`** từ thư viện `sklearn.preprocessing`: Dùng để mã hóa các nhãn (chuỗi như `person1`, `person2`,...) thành các số nguyên.
-   - **`y_train = label_encoder.fit_transform(labels)`**: Chuyển đổi nhãn chuỗi thành số nguyên.
+    return np.array(faces), np.array(labels)
+```
+- **Đọc ảnh và phát hiện khuôn mặt**:
+  - Duyệt qua tất cả các thư mục con trong thư mục `data_path`. Mỗi thư mục con đại diện cho một lớp (label) (ví dụ: mỗi người có một thư mục chứa ảnh của họ).
+  - Mỗi ảnh được chuyển thành ảnh xám (`cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)`), sau đó áp dụng mô hình Haar để phát hiện khuôn mặt.
+  - Các khuôn mặt phát hiện được được cắt ra và thay đổi kích thước về `(100, 100)` để có thể đưa vào mô hình học sâu.
+  
+### 4. **Tiền xử lý dữ liệu**:
+- **Mã hóa nhãn**:
+  ```python
+  label_encoder = LabelEncoder()
+  y_train = label_encoder.fit_transform(labels)
+  ```
+  - Dùng `LabelEncoder` để mã hóa các nhãn (labels) từ chuỗi (tên người) thành các giá trị số.
+  
+- **Tạo dữ liệu đầu vào và đầu ra**:
+  ```python
+  X_train = faces.reshape(faces.shape[0], 100, 100, 1)
+  ```
+  - Chuyển đổi mảng `faces` thành một mảng có kích thước phù hợp với mô hình CNN: `(số lượng ảnh, chiều cao, chiều rộng, kênh màu)`. Ở đây, mỗi ảnh có kích thước 100x100 và có 1 kênh màu (ảnh xám).
 
-### 5. **Tiền xử lý dữ liệu đầu vào**
-   - **`X_train = X_train.reshape(X_train.shape[0], 100, 100, 1)`**: Chuyển đổi ảnh khuôn mặt thành định dạng phù hợp cho mô hình CNN. Mỗi ảnh có kích thước 100x100 pixel và có một kênh (ảnh xám), nên dữ liệu có dạng `(số lượng ảnh, 100, 100, 1)`.
+### 5. **Xây dựng mô hình CNN**:
+```python
+model = Sequential()
+model.add(Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 1)))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Conv2D(64, (3, 3), activation='relu'))
+model.add(MaxPooling2D(pool_size=(2, 2)))
+model.add(Flatten())
+model.add(Dense(128, activation='relu'))
+model.add(Dense(len(np.unique(y_train)), activation='softmax'))
+```
+- **Conv2D**: Các lớp tích chập (Convolutional layers) giúp mô hình học được các đặc trưng quan trọng từ hình ảnh.
+- **MaxPooling2D**: Lớp này giúp giảm chiều của ảnh, giữ lại các đặc trưng quan trọng.
+- **Flatten**: Làm phẳng các đặc trưng từ các lớp trước để đưa vào các lớp Dense (fully connected layers).
+- **Dense**: Các lớp kết nối đầy đủ giúp phân loại ảnh thành các lớp tương ứng.
 
-### 6. **Xây dựng mô hình CNN**
-   - **`Sequential`**: Dùng để tạo mô hình học sâu tuần tự.
-   - **`Conv2D(32, (3, 3), activation='relu', input_shape=(100, 100, 1))`**: Thêm lớp tích chập (convolutional layer) với 32 bộ lọc kích thước 3x3 và sử dụng hàm kích hoạt ReLU. Đây là lớp đầu vào của mô hình.
-   - **`MaxPooling2D(pool_size=(2, 2))`**: Thêm lớp giảm kích thước (pooling layer) với kích thước cửa sổ 2x2 để giảm kích thước không gian của dữ liệu.
-   - **`Flatten()`**: Biến dữ liệu từ dạng 2D thành 1D, chuẩn bị cho lớp fully connected.
-   - **`Dense(128, activation='relu')`**: Thêm một lớp fully connected (dense layer) với 128 nơ-ron và hàm kích hoạt ReLU.
-   - **`Dense(len(np.unique(y_train)), activation='softmax')`**: Lớp cuối cùng với số nơ-ron bằng với số lớp nhãn và hàm kích hoạt softmax để phân loại nhiều lớp.
-   
-   - **`model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=['accuracy'])`**: Biên dịch mô hình với tối ưu hóa Adam, hàm mất mát sparse categorical crossentropy (vì nhãn là số nguyên) và theo dõi độ chính xác.
+### 6. **Biên dịch và huấn luyện mô hình**:
+```python
+model.compile(optimizer=Adam(), loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+model.fit(X_train, y_train, epochs=10, batch_size=32)
+```
+- **Biên dịch mô hình**:
+  - Sử dụng `Adam` optimizer, một thuật toán tối ưu hiệu quả cho các bài toán học sâu.
+  - Mất mát (`loss`) sử dụng `sparse_categorical_crossentropy` vì bài toán phân loại nhiều lớp.
+  
+- **Huấn luyện mô hình**:
+  - Mô hình được huấn luyện với dữ liệu huấn luyện (`X_train`, `y_train`) trong 10 epoch, mỗi batch có 32 mẫu.
 
-### 7. **Huấn luyện mô hình**
-   - **`model.fit(X_train, y_train, epochs=10, batch_size=32)`**: Huấn luyện mô hình với dữ liệu `X_train` và nhãn `y_train` trong 10 epoch (lượt huấn luyện).
+### 7. **Mở webcam và nhận diện khuôn mặt**:
+```python
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+```
+- **Mở webcam**: `cv2.VideoCapture(0)` mở webcam (0 là thiết bị webcam mặc định).
+- **Thiết lập độ phân giải**: Đặt độ phân giải của video (640x480) qua `cap.set`.
 
-### 8. **Mở camera và nhận diện khuôn mặt**
-   - **`cap = cv2.VideoCapture(0)`**: Mở camera (ID = 0 là camera mặc định).
-   - Trong vòng lặp `while`, các frame từ camera được đọc và chuyển thành ảnh xám. Sau đó, hàm `detectMultiScale` được sử dụng để phát hiện khuôn mặt.
-   
-   - **`face_resized.reshape(1, 100, 100, 1)`**: Khuôn mặt được cắt từ ảnh và thay đổi kích thước thành 100x100, rồi chuyển thành dạng phù hợp cho mô hình CNN (1 ảnh, kích thước 100x100, 1 kênh).
-   - **`prediction = model.predict(face_resized)`**: Mô hình dự đoán nhãn của khuôn mặt.
-   - **`predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])`**: Chuyển dự đoán thành nhãn người tương ứng.
-   
-   - **`confidence = np.max(prediction)`**: Lấy xác suất cao nhất từ mô hình.
-   - **`if confidence < threshold:`**: Nếu xác suất thấp hơn ngưỡng, gán nhãn "Person".
+### 8. **Nhận diện khuôn mặt trong video**:
+```python
+faces_rect = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+for (x, y, w, h) in faces_rect:
+    face = gray[y:y+h, x:x+w]
+    face_resized = cv2.resize(face, (100, 100))
+    face_resized = face_resized.reshape(1, 100, 100, 1)
 
-### 9. **Vẽ kết quả lên ảnh**
-   - **`cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)`**: Vẽ hình chữ nhật quanh khuôn mặt phát hiện.
-   - **`cv2.putText(frame, predicted_label[0], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)`**: Dán nhãn dự đoán vào ảnh gần khuôn mặt.
+    prediction = model.predict(face_resized)
+    predicted_label = label_encoder.inverse_transform([np.argmax(prediction)])
 
-### 10. **Thoát chương trình**
-   - **`cv2.imshow('Face Recognition', frame)`**: Hiển thị ảnh kết quả trong cửa sổ.
-   - **`if cv2.waitKey(1) & 0xFF == ord('q'):`**: Nếu người dùng nhấn phím 'q', thoát khỏi vòng lặp.
-   - **`cap.release()`**: Giải phóng tài nguyên camera.
-   - **`cv2.destroyAllWindows()`**: Đóng tất cả các cửa sổ OpenCV.
+    confidence = np.max(prediction)
+    if confidence < threshold:
+        predicted_label = ["Person"]
+```
+- **Nhận diện khuôn mặt**: Dùng `detectMultiScale` để phát hiện khuôn mặt trong mỗi frame của video.
+- **Dự đoán khuôn mặt**: Các khuôn mặt phát hiện được sẽ được đưa vào mô hình học sâu để dự đoán nhãn. Nếu xác suất dự đoán nhỏ hơn một ngưỡng (ví dụ: 0.5), ứng dụng sẽ gán nhãn là "Person" thay vì nhãn cụ thể.
+
+### 9. **Hiển thị kết quả và thoát**:
+```python
+cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+cv2.putText(frame, predicted_label[0], (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+```
+- **Vẽ hình chữ nhật quanh khuôn mặt** và **dán nhãn** dự đoán lên ảnh.
+  
+### 10. **Giải phóng tài nguyên**:
+
+```python
+
+cap.release()
+cv2.destroyAllWindows()
+
+```
+- Giải phóng tài nguyên của camera và đóng cửa sổ hiển thị khi người dùng nhấn 'q'.
+
+---
 
 ### Tổng kết:
-Đoạn mã trên thực hiện quá trình nhận diện khuôn mặt trực tiếp từ video. Mô hình CNN được huấn luyện trên các khuôn mặt trong bộ dữ liệu và có thể nhận diện các khuôn mặt trong video camera, dán nhãn và xác suất nhận diện lên từng khuôn mặt.
+- Mã này thực hiện các bước sau: thu thập và tiền xử lý dữ liệu khuôn mặt, xây dựng và huấn luyện mô hình CNN, sau đó mở webcam để nhận diện và phân loại khuôn mặt trong thời gian thực.
